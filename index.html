@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Генератор иконок приложений</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f0c29, #1a1a3e, #24243e);
+    color: #e8e8f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+    overflow-x: hidden;
+  }
+
+  .bg-blobs { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  .blob {
+    position: absolute; border-radius: 50%; filter: blur(80px); opacity: .45;
+    animation: float 14s ease-in-out infinite;
+  }
+  .blob.b1 { width: 400px; height: 400px; background: #7b2ff7; top: -80px; left: -80px; }
+  .blob.b2 { width: 350px; height: 350px; background: #f107a3; bottom: -60px; right: -60px; animation-delay: -5s; }
+  .blob.b3 { width: 280px; height: 280px; background: #00d4ff; top: 40%; left: 55%; animation-delay: -9s; }
+  @keyframes float {
+    0%, 100% { transform: translate(0,0) scale(1); }
+    50% { transform: translate(30px,-30px) scale(1.08); }
+  }
+
+  .content { position: relative; z-index: 1; width: 100%; max-width: 1100px; }
+
+  header { text-align: center; margin-bottom: 28px; }
+  header h1 {
+    font-size: 2.1rem; font-weight: 700;
+    background: linear-gradient(90deg, #00d4ff, #7b2ff7, #f107a3);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  header p { color: #9a9ab0; font-size: .95rem; }
+
+  .panel {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+
+  /* ---------- Controls ---------- */
+  .controls {
+    background: rgba(255,255,255,.05);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 20px;
+    padding: 24px;
+  }
+  .controls h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: 1.5px; color: #7b7b96; margin-bottom: 16px; }
+
+  .group { margin-bottom: 20px; }
+  .group label { display: block; font-size: .85rem; color: #c4c4d8; margin-bottom: 8px; }
+
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg button {
+    flex: 1; padding: 9px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12);
+    background: rgba(255,255,255,.04); color: #b9b9ce; cursor: pointer; font-size: .8rem;
+    transition: all .18s;
+  }
+  .seg button:hover { background: rgba(255,255,255,.1); }
+  .seg button.active {
+    background: linear-gradient(135deg, #7b2ff7, #f107a3);
+    border-color: transparent; color: #fff; font-weight: 600;
+    box-shadow: 0 4px 18px rgba(123,47,247,.4);
+  }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .color-pair { display: flex; align-items: center; gap: 10px; }
+  input[type=color] {
+    width: 56px; height: 44px; border: none; border-radius: 12px; cursor: pointer;
+    background: transparent; padding: 0; overflow: hidden;
+  }
+  input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type=color]::-webkit-color-swatch { border: 1px solid rgba(255,255,255,.2); border-radius: 12px; }
+  .swap-btn {
+    width: 34px; height: 34px; border-radius: 10px; border: 1px solid rgba(255,255,255,.15);
+    background: rgba(255,255,255,.06); color: #c4c4d8; cursor: pointer; font-size: 1rem; transition: .18s;
+  }
+  .swap-btn:hover { background: rgba(255,255,255,.15); transform: rotate(180deg); }
+
+  input[type=text] {
+    width: 100%; padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.15);
+    background: rgba(255,255,255,.06); color: #fff; font-size: .9rem; outline: none; transition: .18s;
+  }
+  input[type=text]:focus { border-color: #7b2ff7; box-shadow: 0 0 0 3px rgba(123,47,247,.25); }
+
+  input[type=range] { width: 100%; accent-color: #7b2ff7; }
+
+  .hint { font-size: .72rem; color: #6e6e88; margin-top: 6px; }
+
+  /* ---------- Preview ---------- */
+  .preview-wrap { display: flex; flex-direction: column; gap: 20px; }
+  .preview-card {
+    background: rgba(255,255,255,.05);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 20px;
+    padding: 36px;
+    display: flex; flex-direction: column; align-items: center; gap: 20px;
+  }
+  .stage {
+    width: 100%; max-width: 340px; aspect-ratio: 1;
+    border-radius: 24px;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(255,255,255,.08), transparent 40%),
+      repeating-conic-gradient(rgba(255,255,255,.03) 0% 25%, transparent 0% 50%);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .stage svg { width: 100%; height: 100%; }
+
+  .btn-row { display: flex; gap: 10px; width: 100%; }
+  .btn {
+    flex: 1; padding: 13px; border-radius: 14px; border: none; cursor: pointer;
+    font-size: .9rem; font-weight: 600; transition: .18s; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn.primary {
+    background: linear-gradient(135deg, #7b2ff7, #f107a3); color: #fff;
+    box-shadow: 0 6px 24px rgba(123,47,247,.45);
+  }
+  .btn.primary:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(123,47,247,.55); }
+  .btn.ghost { background: rgba(255,255,255,.08); color: #d4d4e8; border: 1px solid rgba(255,255,255,.15); }
+  .btn.ghost:hover { background: rgba(255,255,255,.15); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+  .toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: rgba(20,20,40,.92); border: 1px solid rgba(123,47,247,.5);
+    padding: 14px 22px; border-radius: 14px; font-size: .9rem; color: #fff;
+    backdrop-filter: blur(12px); opacity: 0; transition: .35s; z-index: 10;
+    display: flex; align-items: center; gap: 10px; box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast .dot { width: 9px; height: 9px; border-radius: 50%; background: #00e676; box-shadow: 0 0 10px #00e676; }
+
+  .size-note { font-size: .75rem; color: #6e6e88; text-align: center; }
+
+  @media (max-width: 860px) {
+    .panel { grid-template-columns: 1fr; }
+    .preview-card { padding: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-blobs">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+</div>
+
+<div class="content">
+  <header>
+    <h1>🎨 Генератор иконок приложений</h1>
+    <p>Настрой параметры → скачай PNG или сохрани прямо в папку Pictures</p>
+  </header>
+
+  <div class="panel">
+    <!-- Controls -->
+    <div class="controls">
+      <h2>Настройки</h2>
+
+      <div class="group">
+        <label>Форма фона</label>
+        <div class="seg" id="shapeSeg">
+          <button data-shape="rounded" class="active">Скругл.</button>
+          <button data-shape="squircle">Squircle</button>
+          <button data-shape="circle">Круг</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <label>Стиль градиента</label>
+        <div class="seg" id="gradSeg">
+          <button data-grad="linear" class="active">Линейный</button>
+          <button data-grad="radial">Радиальный</button>
+          <button data-grad="angle">Диагональ</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <label>Цвета</label>
+        <div class="color-pair">
+          <input type="color" id="colorA" value="#7b2ff7">
+          <input type="color" id="colorB" value="#f107a3">
+          <button class="swap-btn" id="swapBtn" title="Поменять цвета">⇄</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <label>Символ в центре</label>
+        <input type="text" id="symbol" value="🚀" maxlength="4">
+        <div class="hint">Эмодзи или буква. Можно оставить пустым.</div>
+      </div>
+
+      <div class="group">
+        <label>Размер символа: <span id="symSizeVal">55</span>%</label>
+        <input type="range" id="symSize" min="25" max="80" value="55">
+      </div>
+
+      <div class="group">
+        <label>Тень / свечение</label>
+        <input type="range" id="glow" min="0" max="40" value="0">
+      </div>
+
+      <div class="group" style="margin-bottom:0">
+        <label>Случайный стиль</label>
+        <button class="btn ghost" id="randomBtn" style="width:100%">🎲 Сгенерировать случайно</button>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="preview-wrap">
+      <div class="preview-card">
+        <div class="stage" id="stage"></div>
+        <div class="size-note">Превью в масштабе. Файл: PNG 512×512</div>
+        <div class="btn-row">
+          <button class="btn primary" id="saveBtn">💾 Сохранить в Pictures</button>
+          <button class="btn ghost" id="dlBtn">⬇ Скачать PNG</button>
+        </div>
+        <button class="btn ghost" id="dlSvgBtn" style="width:100%">⬇ Скачать SVG</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><div class="dot"></div><span id="toastMsg">Готово</span></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const stage = $('#stage');
+const SIZE = 512;
+
+let shape = 'rounded';
+let gradType = 'linear';
+let colorA = '#7b2ff7';
+let colorB = '#f107a3';
+let symbol = '🚀';
+let symSize = 55;
+let glow = 0;
+
+function roundedRect(x, y, w, h, r) {
+  return `M ${x+r},${y} h ${w-2*r} a ${r},${r} 0 0 1 ${r},${r} v ${h-2*r} a ${r},${r} 0 0 1 -${r},${r} h -${w-2*r} a ${r},${r} 0 0 1 -${r},-${r} v -${h-2*r} a ${r},${r} 0 0 1 ${r},-${r} z`;
+}
+
+function squirclePath(size, c) {
+  const r = size * c;
+  const x = 0, y = 0, w = size, h = size;
+  // smooth superellipse approximation using bezier
+  return `M ${x+r},${y}
+          C ${x+w-r*0.4},${y} ${x+w},${y+r*0.4} ${x+w},${y+r}
+          L ${x+w},${y+h-r}
+          C ${x+w},${y+h-r*0.4} ${x+w-r*0.4},${y+h} ${x+w-r},${y+h}
+          L ${x+r},${y+h}
+          C ${x+r*0.4},${y+h} ${x},${y+h-r*0.4} ${x},${y+h-r}
+          L ${x},${y+r}
+          C ${x},${y+r*0.4} ${x+r*0.4},${y} ${x+r},${y} Z`;
+}
+
+function shapePath() {
+  if (shape === 'circle') return 'M 256,0 A 256,256 0 1 1 255.9,0 Z';
+  if (shape === 'squircle') return squirclePath(SIZE, 0.16);
+  return roundedRect(0, 0, SIZE, SIZE, 112); // iOS-like corner
+}
+
+function buildSVG() {
+  const defs = [];
+  let grad;
+  if (gradType === 'linear') {
+    grad = `<linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${colorA}"/><stop offset="1" stop-color="${colorB}"/></linearGradient>`;
+  } else if (gradType === 'radial') {
+    grad = `<radialGradient id="g" cx="0.5" cy="0.5" r="0.8">
+      <stop offset="0" stop-color="${colorA}"/><stop offset="1" stop-color="${colorB}"/></radialGradient>`;
+  } else {
+    grad = `<linearGradient id="g" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="${colorA}"/><stop offset="1" stop-color="${colorB}"/></linearGradient>`;
+  }
+
+  let glowFilter = '';
+  if (glow > 0) {
+    glowFilter = `<filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="${glow/3}" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>`;
+  }
+
+  let symbolEl = '';
+  if (symbol.trim()) {
+    const fs = (SIZE * symSize / 100);
+    const y = SIZE/2 + fs*0.36;
+    symbolEl = `<text x="256" y="${y}" font-size="${fs}" text-anchor="middle"
+      font-family="Segoe UI, system-ui, sans-serif" filter="${glow>0?'url(#glow)':'none'}">${symbol}</text>`;
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">
+    <defs>${grad}${glowFilter}</defs>
+    <path d="${shapePath()}" fill="url(#g)" ${glow>0?'filter="url(#glow)"':''}/>
+    ${symbolEl}
+  </svg>`;
+}
+
+function render() {
+  const svgStr = buildSVG();
+  stage.innerHTML = svgStr;
+  stage.querySelector('svg').style.width = '100%';
+  stage.querySelector('svg').style.height = '100%';
+}
+
+/* SVG string -> PNG blob via canvas */
+function svgToPngBlob(svgStr) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = SIZE; canvas.height = SIZE;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, SIZE, SIZE);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png');
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+function toast(msg) {
+  $('#toastMsg').textContent = msg;
+  const t = $('#toast');
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ---- controls ---- */
+$('#shapeSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  shape = b.dataset.shape;
+  $('#shapeSeg').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+  render();
+});
+
+$('#gradSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  gradType = b.dataset.grad;
+  $('#gradSeg').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+  render();
+});
+
+$('#colorA').addEventListener('input', e => { colorA = e.target.value; render(); });
+$('#colorB').addEventListener('input', e => { colorB = e.target.value; render(); });
+$('#swapBtn').addEventListener('click', () => {
+  [colorA, colorB] = [colorB, colorA];
+  $('#colorA').value = colorA; $('#colorB').value = colorB; render();
+});
+$('#symbol').addEventListener('input', e => { symbol = e.target.value; render(); });
+$('#symSize').addEventListener('input', e => {
+  symSize = +e.target.value; $('#symSizeVal').textContent = symSize; render();
+});
+$('#glow').addEventListener('input', e => { glow = +e.target.value; render(); });
+
+const palettes = [
+  ['#7b2ff7','#f107a3'], ['#00d4ff','#7b2ff7'], ['#ff5f6d','#ffc371'],
+  ['#11998e','#38ef7d'], ['#fc466b','#3f5efb'], ['#f7971e','#ffd200'],
+  ['#8e2de2','#4a00e0'], ['#00c6ff','#0072ff'], ['#f953c6','#b91d73'],
+  ['#43e97b','#38f9d7'], ['#fa709a','#fee140'], ['#30cfd0','#330867']
+];
+const emojis = ['🚀','⚡','🔥','💎','🎮','🎧','📷','🎯','🧠','🌊','🍕','🎨','🦄','🌈','🏆','🎵','💡','🧩','🌙','❤️','👾','🕹️','⭐','🛸'];
+const syms = ['A','B','C','M','S','Z','K','R','N','X'];
+const shapes = ['rounded','squircle','circle'];
+const grads = ['linear','radial','angle'];
+
+$('#randomBtn').addEventListener('click', () => {
+  colorA = palettes[Math.floor(Math.random()*palettes.length)][0];
+  const pair = palettes[Math.floor(Math.random()*palettes.length)];
+  colorB = pair[1];
+  symbol = Math.random() < 0.7 ? emojis[Math.floor(Math.random()*emojis.length)]
+                               : syms[Math.floor(Math.random()*syms.length)];
+  shape = shapes[Math.floor(Math.random()*shapes.length)];
+  gradType = grads[Math.floor(Math.random()*grads.length)];
+  symSize = 40 + Math.floor(Math.random()*30);
+  glow = Math.random() < 0.35 ? 12 + Math.floor(Math.random()*20) : 0;
+
+  $('#colorA').value = colorA; $('#colorB').value = colorB;
+  $('#symbol').value = symbol; $('#symSize').value = symSize;
+  $('#symSizeVal').textContent = symSize; $('#glow').value = glow;
+  $('#shapeSeg').querySelectorAll('button').forEach(x => x.classList.toggle('active', x.dataset.shape === shape));
+  $('#gradSeg').querySelectorAll('button').forEach(x => x.classList.toggle('active', x.dataset.grad === gradType));
+  render();
+});
+
+/* ---- download ---- */
+$('#dlBtn').addEventListener('click', async () => {
+  const blob = await svgToPngBlob(buildSVG());
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'icon-' + Date.now() + '.png';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('PNG скачан');
+});
+
+$('#dlSvgBtn').addEventListener('click', () => {
+  const blob = new Blob([buildSVG()], {type: 'image/svg+xml'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'icon-' + Date.now() + '.svg';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('SVG скачан');
+});
+
+/* ---- save to Pictures via local server ---- */
+$('#saveBtn').addEventListener('click', async () => {
+  const btn = $('#saveBtn');
+  btn.disabled = true; btn.textContent = '⏳ Сохраняю...';
+  try {
+    const blob = await svgToPngBlob(buildSVG());
+    const buf = await blob.arrayBuffer();
+    const resp = await fetch('http://127.0.0.1:8765/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/octet-stream'},
+      body: buf
+    });
+    const json = await resp.json();
+    if (!resp.ok) throw new Error(json.error || 'Ошибка сервера');
+    toast('✅ ' + json.message);
+  } catch (err) {
+    toast('❌ ' + err.message + ' (сервер запущен?)');
+  } finally {
+    btn.disabled = false; btn.textContent = '💾 Сохранить в Pictures';
+  }
+});
+
+render();
+</script>
+</body>
+</html>
